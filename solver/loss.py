@@ -31,11 +31,21 @@ def loss_func(config, data, prob, desc=None, prob_warp=None, desc_warp=None, dev
                                data['warp']['mask'],
                                device)
 
-    loss = det_loss + det_loss_warp + weighted_des_loss
-
-    a, b, c = det_loss.item(), det_loss_warp.item(), weighted_des_loss.item()
-    print('{} loss(p1, p2, weight desc, all): {:.3f}, {:.3f}, {:.3f}, {:.3f}'.format(message, a, b,c,a+b+c))
-    return loss
+    is_det_desc_loss = config['loss'].get('is_det_desc_loss')
+    if is_det_desc_loss == 0:
+        loss = det_loss + det_loss_warp
+        a, b = det_loss.item(), det_loss_warp.item()
+        print('{} loss(p1, p2, all): {:.3f}, {:.3f}, {:.3f}'.format(message, a, b, a + b))
+        return loss
+    elif is_det_desc_loss == 1:
+        loss = weighted_des_loss
+        print('{} loss(weight desc): {:.3f}'.format(message, weighted_des_loss.item()))
+        return loss
+    else:
+        loss = det_loss + det_loss_warp + weighted_des_loss
+        a, b, c = det_loss.item(), det_loss_warp.item(), weighted_des_loss.item()
+        print('{} loss(p1, p2, weight desc, all): {:.3f}, {:.3f}, {:.3f}, {:.3f}'.format(message, a, b,c,a+b+c))
+        return loss
 
 def detector_loss(keypoint_map, logits, valid_mask=None, grid_size=8, device='cpu'):
     """

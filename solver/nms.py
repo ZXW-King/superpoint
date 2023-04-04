@@ -36,8 +36,6 @@ def box_nms(prob, size=4, iou=0.1, min_prob=0.015, keep_top_k=-1):
     :param keep_top_k:
     :return:
     """
-    # prob = prob.squeeze(dim=1)
-    # print(prob.shape)
     assert(prob.shape[0]==1 and len(prob.shape)==3)
     prob = prob.squeeze(dim=0)
 
