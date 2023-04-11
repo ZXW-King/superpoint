@@ -813,14 +813,3 @@ if __name__ == '__main__':
     cv2.destroyAllWindows()
 
     print('==> Finshed Demo.')
-
-"""
-预训练的命令测试：
-python3 demo_superpoint_orb.py --input1="/media/xin/data1/test_data/Euroc_rubby007_2/cam0/data/" --input2="/media/xin/data1/test_data/Euroc_rubby007_2/cam1/data/" --W=640 --H=400 --cuda --display_scale=1 --weights_path="./model_weights/superpoint_v1.pth"
-
-
-训练后的命令测试：
-python3 demo_superpoint_orb.py --input1="/media/xin/data1/shujuji0310/B座/下午/recordBzuoxiawu/imsee_data.bag.imgs.L/" --input2="/media/xin/data1/shujuji0310/B座/下午/recordBzuoxiawu/imsee_data.bag.imgs.R/" --W=640 --H=400 --cuda --display_scale=1 --weights_path="./model_weights/R102_weights/202_super_weight.pth"
-
-
-"""

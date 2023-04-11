@@ -1,4 +1,6 @@
-#-*-coding:utf8-*-
+# -*-coding:utf8-*-
+import time
+
 import torch
 from torch.optim.lr_scheduler import StepLR
 import numpy as np
@@ -13,80 +15,81 @@ from model.magic_point import MagicPoint
 from model.superpoint_bn import SuperPointBNNet
 from solver.loss import loss_func
 from utils.file import MkdirSimple
+from datetime import datetime
+from torch.utils.tensorboard import SummaryWriter
 
-#map magicleap weigt to our model
-model_dict_map= \
-{'conv3b.weight':'backbone.block3_2.0.weight',
- 'conv4b.bias':'backbone.block4_2.0.bias',
- 'conv4b.weight':'backbone.block4_2.0.weight',
- 'conv1b.bias':'backbone.block1_2.0.bias',
- 'conv3a.bias':'backbone.block3_1.0.bias',
- 'conv1b.weight':'backbone.block1_2.0.weight',
- 'conv2b.weight':'backbone.block2_2.0.weight',
- 'convDa.bias':'descriptor_head.convDa.bias',
- 'conv1a.weight':'backbone.block1_1.0.weight',
- 'convDa.weight':'descriptor_head.convDa.weight',
- 'conv4a.bias':'backbone.block4_1.0.bias',
- 'conv2a.bias':'backbone.block2_1.0.bias',
- 'conv2a.weight':'backbone.block2_1.0.weight',
- 'convPb.weight':'detector_head.convPb.weight',
- 'convPa.bias':'detector_head.convPa.bias',
- 'convPa.weight':'detector_head.convPa.weight',
- 'conv2b.bias':'backbone.block2_2.0.bias',
- 'conv1a.bias':'backbone.block1_1.0.bias',
- 'convDb.weight':'descriptor_head.convDb.weight',
- 'conv3a.weight':'backbone.block3_1.0.weight',
- 'conv4a.weight':'backbone.block4_1.0.weight',
- 'convPb.bias':'detector_head.convPb.bias',
- 'convDb.bias':'descriptor_head.convDb.bias',
- 'conv3b.bias':'backbone.block3_2.0.bias'}
+# map magicleap weigt to our model
+model_dict_map = \
+    {'conv3b.weight': 'backbone.block3_2.0.weight',
+     'conv4b.bias': 'backbone.block4_2.0.bias',
+     'conv4b.weight': 'backbone.block4_2.0.weight',
+     'conv1b.bias': 'backbone.block1_2.0.bias',
+     'conv3a.bias': 'backbone.block3_1.0.bias',
+     'conv1b.weight': 'backbone.block1_2.0.weight',
+     'conv2b.weight': 'backbone.block2_2.0.weight',
+     'convDa.bias': 'descriptor_head.convDa.bias',
+     'conv1a.weight': 'backbone.block1_1.0.weight',
+     'convDa.weight': 'descriptor_head.convDa.weight',
+     'conv4a.bias': 'backbone.block4_1.0.bias',
+     'conv2a.bias': 'backbone.block2_1.0.bias',
+     'conv2a.weight': 'backbone.block2_1.0.weight',
+     'convPb.weight': 'detector_head.convPb.weight',
+     'convPa.bias': 'detector_head.convPa.bias',
+     'convPa.weight': 'detector_head.convPa.weight',
+     'conv2b.bias': 'backbone.block2_2.0.bias',
+     'conv1a.bias': 'backbone.block1_1.0.bias',
+     'convDb.weight': 'descriptor_head.convDb.weight',
+     'conv3a.weight': 'backbone.block3_1.0.weight',
+     'conv4a.weight': 'backbone.block4_1.0.weight',
+     'convPb.bias': 'detector_head.convPb.bias',
+     'convDb.bias': 'descriptor_head.convDb.bias',
+     'conv3b.bias': 'backbone.block3_2.0.bias'}
 
 
-def train_eval(model, dataloader, config):
+def train_eval(model, dataloader, config,write_loss):
     optimizer = torch.optim.Adam(model.parameters(), lr=config['solver']['base_lr'])
-
     try:
         # start training
         for epoch in range(config['solver']['epoch']):
+            t_0 = time.time()
             model.train()
             mean_loss = []
             for i, data in tqdm(enumerate(dataloader['train'])):
                 prob, desc, prob_warp, desc_warp = None, None, None, None
-                if config['model']['name']=='magicpoint' and config['data']['name']=='coco':
+                if config['model']['name'] == 'magicpoint' and config['data']['name'] == 'coco':
                     data['raw'] = data['warp']
                     data['warp'] = None
 
                 raw_outputs = model(data['raw'])
 
                 ## for superpoint
-                if config['model']['name']!='magicpoint':#train superpoint
+                if config['model']['name'] != 'magicpoint':  # train superpoint
                     warp_outputs = model(data['warp'])
                     prob, desc, prob_warp, desc_warp = raw_outputs['det_info'], \
-                                                       raw_outputs['desc_info'], \
-                                                       warp_outputs['det_info'],\
-                                                       warp_outputs['desc_info']
+                        raw_outputs['desc_info'], \
+                        warp_outputs['det_info'], \
+                        warp_outputs['desc_info']
                 else:
-                    prob = raw_outputs #train magicpoint
+                    prob = raw_outputs  # train magicpoint
 
                 ##loss
-                loss = loss_func(config['solver'], data, prob, desc,
-                                 prob_warp, desc_warp, device)
+                loss = loss_func(config['solver'], data, prob, i,epoch,len(dataloader['train']),write_loss,desc,prob_warp, desc_warp, device)
 
                 mean_loss.append(loss.item())
-                #reset
+                # reset
                 model.zero_grad()
                 loss.backward()
                 optimizer.step()
 
-                if (i%500==0):
+                if (i % 500 == 0):
                     print('Epoch [{}/{}], Step [{}/{}], LR [{}], Loss: {:.3f}'
                           .format(epoch, config['solver']['epoch'], i, len(dataloader['train']),
                                   optimizer.state_dict()['param_groups'][0]['lr'], np.mean(mean_loss)))
                     mean_loss = []
 
                 ##do evaluation
-                save_iter = int(0.5*len(dataloader['train']))#half epoch
-                if (i%save_iter==0 and i!=0) or (i+1)==len(dataloader['train']):
+                save_iter = int(0.5 * len(dataloader['train']))  # half epoch
+                if (i % save_iter == 0 and i != 0) or (i + 1) == len(dataloader['train']):
                     eval_loss = 0
                     # model.eval()
                     # eval_loss = do_eval(model, dataloader['test'], config, device)
@@ -100,9 +103,15 @@ def train_eval(model, dataloader, config):
                     print('Epoch [{}/{}], Step [{}/{}], Eval loss {:.3f}, Checkpoint saved to {}'
                           .format(epoch, config['solver']['epoch'], i, len(dataloader['train']), eval_loss, save_path))
                     mean_loss = []
+            t_1 = time.time()
+            minus = (t_1 - t_0) / 60
+            print(f"第{epoch}轮训练完毕，共计时间：{int(minus)}分钟")
+
+
 
     except KeyboardInterrupt:
         torch.save(model.state_dict(), "./export/key_interrupt_model.pth")
+
 
 @torch.no_grad()
 def do_eval(model, dataloader, config, device):
@@ -110,7 +119,7 @@ def do_eval(model, dataloader, config, device):
     truncate_n = max(int(0.1 * len(dataloader)), 100)  # 0.1 of test dataset for eval
 
     for ind, data in tqdm(enumerate(dataloader)):
-        if ind>truncate_n:
+        if ind > truncate_n:
             break
         prob, desc, prob_warp, desc_warp = None, None, None, None
         if config['model']['name'] == 'magicpoint' and config['data']['name'] == 'coco':
@@ -122,9 +131,9 @@ def do_eval(model, dataloader, config, device):
         if config['model']['name'] != 'magicpoint':
             warp_outputs = model(data['warp'])
             prob, desc, prob_warp, desc_warp = raw_outputs['det_info'], \
-                                               raw_outputs['desc_info'], \
-                                               warp_outputs['det_info'], \
-                                               warp_outputs['desc_info']
+                raw_outputs['desc_info'], \
+                warp_outputs['det_info'], \
+                warp_outputs['desc_info']
         else:
             prob = raw_outputs
 
@@ -139,7 +148,15 @@ def do_eval(model, dataloader, config, device):
 
 
 
-if __name__=='__main__':
+def get_rede(root,dev_name):
+    # 日志记录
+    logs_base_dir = os.path.join(root,f'tensorboard_{dev_name}_logs')
+    os.makedirs(logs_base_dir, exist_ok=True)
+    log_dir_sp_synthetic_loss = "%s/coco_loss/%s" % (logs_base_dir, datetime.now().strftime("%m%d-%H%M"))
+    writer_sp = SummaryWriter(log_dir_sp_synthetic_loss)
+    return writer_sp
+
+if __name__ == '__main__':
 
     torch.multiprocessing.set_start_method('spawn')
 
@@ -167,14 +184,15 @@ if __name__=='__main__':
         data_loaders = {k: DataLoader(datasets[k],
                                       config['solver']['{}_batch_size'.format(k)],
                                       collate_fn=datasets[k].batch_collator,
-                                      shuffle=True) for k in ['train',]}
+                                      shuffle=True) for k in ['train', ]}
     elif config['data']['name'] == 'synthetic':
         datasets = {'train': SyntheticShapes(config['data'], task=['training', 'validation'], device=device),
                     'test': SyntheticShapes(config['data'], task=['test', ], device=device)}
-        data_loaders = {'train': DataLoader(datasets['train'], batch_size=config['solver']['train_batch_size'], shuffle=True,
-                                            collate_fn=datasets['train'].batch_collator),
-                        'test': DataLoader(datasets['test'], batch_size=config['solver']['test_batch_size'], shuffle=True,
-                                           collate_fn=datasets['test'].batch_collator)}
+        data_loaders = {
+            'train': DataLoader(datasets['train'], batch_size=config['solver']['train_batch_size'], shuffle=True,
+                                collate_fn=datasets['train'].batch_collator),
+            'test': DataLoader(datasets['test'], batch_size=config['solver']['test_batch_size'], shuffle=True,
+                               collate_fn=datasets['test'].batch_collator)}
     ##Make model
     if config['model']['name'] == 'superpoint':
         model = SuperPointBNNet(config['model'], device=device, using_bn=config['model']['using_bn'])
@@ -185,10 +203,16 @@ if __name__=='__main__':
     if os.path.exists(config['model']['pretrained_model']):
         pre_model_dict = torch.load(config['model']['pretrained_model'], map_location='cpu')
         model_dict = model.state_dict()
-        for k,v in pre_model_dict.items():
-            if k in model_dict.keys() and v.shape==model_dict[k].shape:
+        for k, v in pre_model_dict.items():
+            if k in model_dict.keys() and v.shape == model_dict[k].shape:
                 model_dict[k] = v
         model.load_state_dict(model_dict)
+
+    # write log
+    write_loss = get_rede(config["solver"]['log_dir'],config["solver"]['model_name'])
+
     model.to(device)
-    train_eval(model, data_loaders, config)
+    print("start training:", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+    train_eval(model, data_loaders, config,write_loss)
+    print("end training:", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
     print('Done')
