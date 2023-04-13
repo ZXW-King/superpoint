@@ -13,3 +13,5 @@ log.txt
 *pth
 test.py
 log/
+.ipynb_checkpoints/
+*.jpg
