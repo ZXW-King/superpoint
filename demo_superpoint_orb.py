@@ -77,7 +77,7 @@ DEFAULT_KEY = -1
 superPoints = {}
 
 
-def drawMatchPoints(image_name, log_file, img1, pts1, img2, pts2, desc1, desc2, cvBFSpp, win, display_scale=1):
+def drawMatchPoints(image_name, log_file, img1, pts1, img2, pts2, desc1, desc2, cvBFSpp, win, display_scale=1,img_desc_dir=""):
     if pts1 is None or pts2 is None or desc1 is None or desc2 is None:
         print('[superPoint]==>pts1 is None or pts2 is None or desc1 is None or desc2 is None')
         return
@@ -99,7 +99,14 @@ def drawMatchPoints(image_name, log_file, img1, pts1, img2, pts2, desc1, desc2, 
     out1 = (np.dstack((img1, img1, img1)) * 255.).astype('uint8')
     out2 = (np.dstack((img2, img2, img2)) * 255.).astype('uint8')
     stereo_img = np.hstack((out1, out2))
+    draw_desc_img = stereo_img.copy()
     count_match = 0
+    # 特征点存放位置
+    if img_desc_dir:
+        img_type = image_name.split(".")[1]
+        img_name = image_name.split(".")[0]
+        save_img_desc_dir  = os.path.join(img_desc_dir,img_name)
+        os.makedirs(save_img_desc_dir)
 
     for match in matches:
         pt1 = pts1[:, match.queryIdx]
@@ -116,6 +123,15 @@ def drawMatchPoints(image_name, log_file, img1, pts1, img2, pts2, desc1, desc2, 
         cv2.line(stereo_img, tuple(ptL), tuple(ptR),
                  (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)),
                  thickness=1, lineType=cv2.LINE_AA)
+        if img_desc_dir:
+            stereo_img_draw = draw_desc_img.copy()
+            cv2.line(stereo_img_draw, tuple(ptL), tuple(ptR),
+                     (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)),
+                     thickness=2, lineType=cv2.LINE_AA)
+            save_img_name = os.path.join(save_img_desc_dir,img_name+str(count_match)+"."+img_type)
+            cv2.imwrite(save_img_name,stereo_img_draw)
+
+
 
     cv2.putText(stereo_img, str(count_match), (stereo_img.shape[1] - 150, stereo_img.shape[0] - 50), cv2.FONT_HERSHEY_COMPLEX, 2, (0, 0, 255), 2)
     cols = int(cols * 2 * display_scale)
@@ -675,6 +691,8 @@ if __name__ == '__main__':
                         help='Directory where to write output frames (default: tracker_outputs/).')
     parser.add_argument('--reshape', action='store_true',
                         help='reshape desc.')
+    parser.add_argument('--img_desc_dir', type=str, default='',
+                        help='The folder where the descriptor is stored. (Not stored by default)')
     opt = parser.parse_args()
     print('parser.parse_args', opt)
     # This class helps load input images from different sources.
@@ -703,7 +721,7 @@ if __name__ == '__main__':
         print('Skipping visualization, will not show a GUI.')
 
     # Font parameters for visualizaton.
-    font = cv2.FONT_HERSHEY_DUPLEX
+    font = cv2.FONT_HERSHEY_DUPLEX    # 设置字体样式
     font_clr = (255, 255, 255)
     font_pt = (4, 12)
     font_sc = 0.4
@@ -769,8 +787,9 @@ if __name__ == '__main__':
             cv2.imshow(win1, show)
 
             log_file = os.path.join(os.path.dirname(opt.write_dir), "log.txt")
+
             descimg = drawMatchPoints(image_name, log_file, img, pts, img2, pts2, desc, desc2, cvBFSpp, win3,
-                                      opt.display_scale)
+                                      opt.display_scale,opt.img_desc_dir)
             # drawMatchPoints(image_name, log_file, img, pts, img2, pts2, desc, desc2, cvBFSpp, win3, opt.display_scale)
             detectAndCompute(image_name, img, img2, orb, cvBFORB, opt.display_scale)
 
