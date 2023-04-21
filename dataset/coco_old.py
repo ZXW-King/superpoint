@@ -41,29 +41,16 @@ class COCODataset(torch.utils.data.Dataset):
             if lb_path == '':
                 continue
 
-            self.flag = None
-            if os.path.isdir(lb_path):
-                csv_datas = os.listdir(lb_path)
-                temp = []
-                for file in csv_datas:
-                    csv_path = os.path.join(lb_path,file)
-                    temp.append((im_path,csv_path))
-                self.flag = "dir"
-            elif os.path.isfile(lb_path):
-                self.flag = "file"
-                with open(lb_path, "r") as f:
-                    data = f.readlines()
-                    if lb_path.endswith('csv'):
-                        data = data[1:]
+            data = []
+            with open(lb_path, "r") as f:
+                data = f.readlines()
+                if lb_path.endswith('csv'):
+                    data = data[1:]
 
-                data = [d.strip().split(',') for d in data]
-                temp = [
-                    {'image': os.path.join(im_path, d[0].strip()),
-                     'label': np.array(d[1:]).astype('float').reshape(-1, 3)}
-                    for d in data]
-            else:
-                temp = []
-
+            data = [d.strip().split(',') for d in data]
+            temp = [
+                {'image': os.path.join(im_path, d[0].strip()), 'label': np.array(d[1:]).astype('float').reshape(-1, 3)}
+                for d in data]
             samples += temp
         ##
         return samples
@@ -74,23 +61,10 @@ class COCODataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         '''load raw data'''
         data_path = self.samples[idx]  # raw image path of processed image and point path
-        if self.flag == "file":
-            img = cv2.imread(data_path['image'], 0)  # Gray image
-            pts = None if data_path['label'] is None else data_path['label'][:, 0:2]  # N*2,xy
-        elif self.flag == "dir":
-            with open(data_path[1], "r") as f:
-                datas = f.readlines()
-                filename = os.path.basename(data_path[1])
-                if filename.endswith('csv'):
-                    img_name = datas[0].split(",")[0].strip()
-                    image_file = os.path.join(data_path[0], img_name)
-                    img = cv2.imread(image_file, 0)  # Gray image
-                    landmarks = np.array(datas[0].split(",")[1:])
-                    landmarks = landmarks.astype('float').reshape(-1, 3)  # 转为1行3列  （x,y,p）
-                    pts = None if landmarks is None else landmarks[:, 0:2]  # N*2,xy
-        else:
-            raise Exception("no data!")
+        img = cv2.imread(data_path['image'], 0)  # Gray image
         h, w = img.shape
+        pts = None if data_path['label'] is None else data_path['label'][:, 0:2]  # N*2,xy
+
         kpts_tensor, kpts_map = None, None
 
         if pts is not None:

@@ -1,8 +1,8 @@
 data:
     name: 'coco'
     resize: [200,320]
-    image_train_path: ['/media/xin/data1/data/coco/train2017',]
-    label_train_path: ['/media/xin/data1/train_data/superpoint/coco/coco_test.csv',]
+    image_train_path: ['/data/COCO/train2017',]
+    label_train_path: ['/work/data/zxw/data_label/coco_test_magic_small.csv',]
     image_test_path: ''
     label_test_path: ''
     augmentation:
@@ -41,7 +41,7 @@ model:
     name: 'superpoint'
     using_bn: true
     grid_size: 8
-    pretrained_model: '/home/xin/zhang/superpoint2/SuperPoint-Pytorch/superpoint_bn.pth'
+    pretrained_model: '/work/data/zxw/project/SuperPoint-Pytorch/superpoint_bn.pth'
     backbone:
         backbone_type: 'VGG'
         vgg:
@@ -55,7 +55,8 @@ model:
     nms: 4
     topk: -1
 solver:
-    grid_size: 16
+    grid_size: 8
+    distances_thresh: 4
     loss:
         positive_margin: 1.0
         negative_margin: 0.2
@@ -68,4 +69,4 @@ solver:
     save_dir: './export/'
     model_name: 'R2.0.7'
     log_dir: './log'
-cuda: 0
+cuda: 1

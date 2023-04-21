@@ -2,7 +2,8 @@ data:
     name: 'coco'
     resize: [200,320]
     image_train_path: ['/media/xin/data1/data/coco/train2017',]
-    label_train_path: ['/media/xin/data1/train_data/superpoint/coco/coco_test.csv',]
+#    label_train_path: ['/media/xin/data1/train_data/superpoint/coco/coco_test.csv',]
+    label_train_path: ['/media/xin/data1/train_data/superpoint/train_datas/coco_test_magic_csv',]
     image_test_path: ''
     label_test_path: ''
     augmentation:
@@ -61,7 +62,6 @@ solver:
         negative_margin: 0.2
         lambda_d: 0.05
         lambda_loss: 10000
-        is_det_desc_loss: 0 # 1:det_loss=0   0:desc_loss=0
     epoch: 50
     base_lr: 0.001 #0.0001
     train_batch_size: 2

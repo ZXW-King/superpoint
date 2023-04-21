@@ -23,7 +23,7 @@ def loss_func(config, data, prob, iter, e, len_dataloader, writer, desc=None, pr
                                   config['grid_size'],
                                   device=device)
 
-    weighted_des_loss, message = descriptor_loss(config,
+    weighted_des_loss, message, unweighted_desc_loss = descriptor_loss(config,
                                                  desc['desc_raw'],
                                                  desc_warp['desc_raw'],
                                                  data['homography'],
@@ -52,6 +52,7 @@ def loss_func(config, data, prob, iter, e, len_dataloader, writer, desc=None, pr
         writer.add_scalar("train/det_loss", det_loss, e * len_dataloader + iter)
         writer.add_scalar("train/det_loss_warp", det_loss_warp, e * len_dataloader + iter)
         writer.add_scalar("train/weighted_des_loss", weighted_des_loss, e * len_dataloader + iter)
+        writer.add_scalar("train/unweighted_des_loss", unweighted_desc_loss, e * len_dataloader + iter)
         return loss
 
 
@@ -109,6 +110,7 @@ def descriptor_loss(config, descriptors, warped_descriptors, homographies, valid
     negative_margin = config['loss']['negative_margin']
     lambda_d = config['loss']['lambda_d']
     lambda_loss = config['loss']['lambda_loss']
+    distances_thresh = config.get('distances_thresh',8)
 
     (batch_size, _, Hc, Wc) = descriptors.shape
     coord_cells = torch.stack(torch.meshgrid([torch.arange(Hc, device=device),
@@ -128,7 +130,7 @@ def descriptor_loss(config, descriptors, warped_descriptors, homographies, valid
     coord_cells = torch.reshape(coord_cells, [1, 1, 1, Hc, Wc, 2]).type(torch.float32)
     warped_coord_cells = torch.reshape(warped_coord_cells, [batch_size, Hc, Wc, 1, 1, 2])
     cell_distances = torch.norm(coord_cells - warped_coord_cells, dim=-1, p=2)
-    s = (cell_distances <= (grid_size - 0.5)).float()  #
+    s = (cell_distances <= (distances_thresh - 0.5)).float()  #
     # s[id_batch, h, w, h', w'] == 1 if the point of coordinates (h, w) warped by the
     # homography is at a distance from (h', w') less than config['grid_size']
     # and 0 otherwise
@@ -160,6 +162,8 @@ def descriptor_loss(config, descriptors, warped_descriptors, homographies, valid
     negative_dist = torch.maximum(torch.tensor(0., device=device), dot_product_desc - negative_margin)
 
     loss = lambda_d * s * positive_dist + (1 - s) * negative_dist
+    # 新增unweight_desc_loss
+    unweight_desc_loss = s * positive_dist + (1 - s) * negative_dist
 
     # Mask the pixels if bordering artifacts appear
     valid_mask = torch.ones([batch_size, Hc * grid_size, Wc * grid_size],
@@ -177,8 +181,10 @@ def descriptor_loss(config, descriptors, warped_descriptors, homographies, valid
     message = 'positive_dist:{:.7f}, negative_dist:{:.7f}'.format(positive_sum, negative_sum)
 
     loss = lambda_loss * torch.sum(valid_mask * loss) / normalization
+    # 新增unweight_desc_loss
+    unweight_desc_loss = lambda_loss * torch.sum(valid_mask * loss) / normalization
 
-    return loss, message
+    return loss, message , unweight_desc_loss
 
 
 def precision_recall(pred, keypoint_map, valid_mask):
