@@ -1,5 +1,7 @@
 import torch
 import torch.nn as nn
+import yaml
+
 from solver.nms import box_nms
 from model.modules.cnn.vgg_backbone import VGGBackbone,VGGBackboneBN
 from model.modules.cnn.cnn_heads import DetectorHead, DescriptorHead
@@ -55,6 +57,10 @@ class SuperPointBNNet(torch.nn.Module):
 
 
 if __name__=='__main__':
-    model = SuperPointBNNet()
-    model.load_state_dict(torch.load('../superpoint_bn.pth'))
+    with open("/home/xin/zhang/superpoint2/SuperPoint-Pytorch/config/superpoint_train_test.yaml", 'r') as fin:
+        config = yaml.safe_load(fin)
+    model = SuperPointBNNet(config=config['model'])
+    # model.load_state_dict(torch.load('../superpoint_bn.pth'))
+    from torchstat import stat
+    print(stat(model, input_size=(1,200,320)))
     print('Done')

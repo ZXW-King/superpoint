@@ -36,7 +36,7 @@ def compute_keypoint_map_xy(points, shape, device='cpu'):
     :param points: (N,2)
     :return:
     """
-
+    # 为了过滤掉超出图片大小的区域
     coord = torch.minimum(torch.round(points).type(torch.int), torch.tensor((shape[1], shape[0]), device=device) - 1)
     kmap = torch.zeros((shape), dtype=torch.int, device=device)
     kmap[coord[:, 1], coord[:, 0]] = 1

@@ -19,6 +19,7 @@ class COCODataset(torch.utils.data.Dataset):
         super(COCODataset, self).__init__()
         self.device = device
         self.is_train = is_train
+        self.is_data_thresh = config.get('is_data_thresh',True)
         self.resize = tuple(config['resize'])
         self.photo_augmentor = PhotoAugmentor(config['augmentation']['photometric'])
         # load config
@@ -76,7 +77,10 @@ class COCODataset(torch.utils.data.Dataset):
         data_path = self.samples[idx]  # raw image path of processed image and point path
         if self.flag == "file":
             img = cv2.imread(data_path['image'], 0)  # Gray image
-            pts = None if data_path['label'] is None else data_path['label'][:, 0:2]  # N*2,xy
+            landmarks = data_path['label']
+            if self.is_data_thresh:
+                landmarks = landmarks[np.where(landmarks[:,2] > 0.015)]
+            pts = None if landmarks is None else landmarks[:, 0:2]  # N*2,xy
         elif self.flag == "dir":
             with open(data_path[1], "r") as f:
                 datas = f.readlines()
@@ -86,7 +90,9 @@ class COCODataset(torch.utils.data.Dataset):
                     image_file = os.path.join(data_path[0], img_name)
                     img = cv2.imread(image_file, 0)  # Gray image
                     landmarks = np.array(datas[0].split(",")[1:])
-                    landmarks = landmarks.astype('float').reshape(-1, 3)  # 转为1行3列  （x,y,p）
+                    landmarks = landmarks.astype('float').reshape(-1, 3)  # 转为N行3列  （x,y,p）
+                    if self.is_data_thresh:
+                        landmarks = landmarks[np.where(landmarks[:,2] > 0.015)]
                     pts = None if landmarks is None else landmarks[:, 0:2]  # N*2,xy
         else:
             raise Exception("no data!")
@@ -120,6 +126,7 @@ class COCODataset(torch.utils.data.Dataset):
                         'mask': valid_mask},
                 'warp': None,
                 'homography': torch.eye(3, device=self.device)}
+
         data['warp'] = deepcopy(data['raw'])
 
         ##

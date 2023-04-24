@@ -182,7 +182,7 @@ def descriptor_loss(config, descriptors, warped_descriptors, homographies, valid
 
     loss = lambda_loss * torch.sum(valid_mask * loss) / normalization
     # 新增unweight_desc_loss
-    unweight_desc_loss = lambda_loss * torch.sum(valid_mask * loss) / normalization
+    unweight_desc_loss = lambda_loss * torch.sum(valid_mask * unweight_desc_loss) / normalization
 
     return loss, message , unweight_desc_loss
 
