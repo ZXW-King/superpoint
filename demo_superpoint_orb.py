@@ -53,6 +53,8 @@ import random
 
 import cv2
 import torch
+
+from model.mysuperpoint import SuperPointNet
 from utils.file import MkdirSimple
 from model.export.superpoint_bn import SuperPointBNNet
 from utils.config import load_config
@@ -91,10 +93,11 @@ def drawMatchPoints(image_name, log_file, img1, pts1, img2, pts2, desc1, desc2, 
     superPointsCount = {'pts1': pts1.shape[1], 'pts2': pts2.shape[1], 'match': len(matches)}
     superPoints[f'{image_name}'] = superPointsCount
 
-    MkdirSimple(log_file)
-    with open(log_file, 'a') as f:
-        f.write(f"{image_name}:{pts1.shape[1]},{pts2.shape[1]},{len(matches)}" + "\n")
-        f.flush()
+    if log_file:
+        MkdirSimple(log_file)
+        with open(log_file, 'a') as f:
+            f.write(f"{image_name}:{pts1.shape[1]},{pts2.shape[1]},{len(matches)}" + "\n")
+            f.flush()
 
     out1 = (np.dstack((img1, img1, img1)) * 255.).astype('uint8')
     out2 = (np.dstack((img2, img2, img2)) * 255.).astype('uint8')
@@ -106,7 +109,7 @@ def drawMatchPoints(image_name, log_file, img1, pts1, img2, pts2, desc1, desc2, 
         img_type = image_name.split(".")[1]
         img_name = image_name.split(".")[0]
         save_img_desc_dir  = os.path.join(img_desc_dir,img_name)
-        os.makedirs(save_img_desc_dir)
+        os.makedirs(save_img_desc_dir,exist_ok=True)
 
     for match in matches:
         pt1 = pts1[:, match.queryIdx]
@@ -125,9 +128,11 @@ def drawMatchPoints(image_name, log_file, img1, pts1, img2, pts2, desc1, desc2, 
                  thickness=1, lineType=cv2.LINE_AA)
         if img_desc_dir:
             stereo_img_draw = draw_desc_img.copy()
+            cv2.circle(stereo_img_draw, tuple(ptL), 2, (0, 255, 0), 1, lineType=16)
+            cv2.circle(stereo_img_draw, tuple(ptR), 2, (0, 255, 0), 1, lineType=16)
             cv2.line(stereo_img_draw, tuple(ptL), tuple(ptR),
                      (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)),
-                     thickness=2, lineType=cv2.LINE_AA)
+                     thickness=1, lineType=cv2.LINE_AA)
             save_img_name = os.path.join(save_img_desc_dir,img_name+str(count_match)+"."+img_type)
             cv2.imwrite(save_img_name,stereo_img_draw)
 
@@ -259,7 +264,11 @@ class SuperPointFrontend(object):
         self.border_remove = 4  # Remove points this close to the border.
 
         # Load the network in inference mode.
-        self.net = SuperPointBNNet(config)
+        if config:
+            self.net = SuperPointBNNet(config)
+        else:
+            self.net = SuperPointNet()
+
         if cuda:
             # Train on GPU, deploy on GPU.
             self.net.load_state_dict(torch.load(weights_path, map_location='cpu'))
@@ -322,7 +331,7 @@ class SuperPointFrontend(object):
         pts, _ = nms_fast(pts, H, W, dist_thresh=self.nms_dist)  # Apply NMS.
         inds = np.argsort(pts[2, :])
         pts = pts[:, inds[::-1]]  # Sort by confidence.
-        # Remove points along border.
+        # Remove points along border. 移除距离边界点较近的点
         bord = self.border_remove
         toremoveW = np.logical_or(pts[0, :] < bord, pts[0, :] >= (W - bord))
         toremoveH = np.logical_or(pts[1, :] < bord, pts[1, :] >= (H - bord))
@@ -333,7 +342,7 @@ class SuperPointFrontend(object):
         if pts.shape[1] == 0:
             desc = np.zeros((D, 0))
         else:
-            # Interpolate into descriptor map using 2D point locations.
+            # Interpolate into descriptor map using 2D point locations. 插值运算
             samp_pts = torch.from_numpy(pts[:2, :].copy())
             samp_pts[0, :] = (samp_pts[0, :] / (float(W) / 2.)) - 1.
             samp_pts[1, :] = (samp_pts[1, :] / (float(H) / 2.)) - 1.
@@ -342,7 +351,7 @@ class SuperPointFrontend(object):
             samp_pts = samp_pts.float()
             if self.cuda:
                 samp_pts = samp_pts.cuda()
-            desc = torch.nn.functional.grid_sample(coarse_desc, samp_pts)
+            desc = torch.nn.functional.grid_sample(coarse_desc, samp_pts) # 上采样
             desc = desc.data.cpu().numpy().reshape(D, -1)
             desc /= np.linalg.norm(desc, axis=0)[np.newaxis, :]
         return pts, desc, heatmap
@@ -631,10 +640,11 @@ class VideoStreamer(object):
             input_image = cv2.resize(input_image, (self.sizer[1], self.sizer[0]),
                                      interpolation=cv2.INTER_AREA)
             input_image = cv2.cvtColor(input_image, cv2.COLOR_RGB2GRAY)
-            input_image = input_image.astype('float') / 255.0
+            input_image = input_image.astype('fl oat') / 255.0
         else:
             image_file = self.listing[self.i]
-            input_image = self.read_image(image_file, self.sizer)
+            # image_file = "/media/xin/data1/shujuji0310/B座/下午/recordBzuoxiawu/imsee_data.bag.imgs.L/1614045169877971_L.png"
+            input_image =  self.read_image(image_file, self.sizer)
         # Increment internal counter.
         self.i = self.i + 1
         input_image = input_image.astype('float32')
@@ -647,7 +657,7 @@ if __name__ == '__main__':
 
     # Parse command line arguments.
     parser = argparse.ArgumentParser(description='PyTorch SuperPoint Demo.')
-    parser.add_argument('--config', type=str, help='config file')
+    parser.add_argument('--config', type=str, default='',help='config file')
     parser.add_argument('--input1', type=str, default='',
                         help='Image directory or movie file or "camera" (for webcam).')
 
@@ -678,7 +688,7 @@ if __name__ == '__main__':
     parser.add_argument('--nn_thresh', type=float, default=0.7,
                         help='Descriptor matching threshold (default: 0.7).')
     parser.add_argument('--camid', type=int, default=0,
-                        help='OpenCV webcam video capture ID, usually 0 or 1 (default: 0).')
+                        help='Open CV webcam video capture ID, usually 0 or 1 (default: 0).')
     parser.add_argument('--waitkey', type=int, default=1,
                         help='OpenCV waitkey time in ms (default: 1).')
     parser.add_argument('--cuda', action='store_true',
@@ -701,9 +711,12 @@ if __name__ == '__main__':
 
     print('==> Loading pre-trained network.')
     # This class runs the SuperPoint network and processes its outputs.
-
-    config = load_config(opt.config)
-    fe = SuperPointFrontend(config['model'], weights_path=opt.weights_path,
+    if opt.config:
+        config = load_config(opt.config)
+        config_dir = config['model']
+    else:
+        config_dir = ''
+    fe = SuperPointFrontend(config_dir, weights_path=opt.weights_path,
                             nms_dist=opt.nms_dist,
                             conf_thresh=opt.conf_thresh,
                             nn_thresh=opt.nn_thresh,
@@ -785,9 +798,10 @@ if __name__ == '__main__':
         if not opt.no_display:
             show = np.hstack([out1, out2])
             cv2.imshow(win1, show)
-
-            log_file = os.path.join(os.path.dirname(opt.write_dir), "log.txt")
-
+            if opt.write:
+                log_file = os.path.join(os.path.dirname(opt.write_dir), "log.txt")
+            else:
+                log_file = ''
             descimg = drawMatchPoints(image_name, log_file, img, pts, img2, pts2, desc, desc2, cvBFSpp, win3,
                                       opt.display_scale,opt.img_desc_dir)
             # drawMatchPoints(image_name, log_file, img, pts, img2, pts2, desc, desc2, cvBFSpp, win3, opt.display_scale)
@@ -827,6 +841,8 @@ if __name__ == '__main__':
         if opt.show_extra:
             print('Processed image %d (net+post_process: %.2f FPS, total: %.2f FPS).' \
                   % (vs.i, net_t, total_t))
+
+
 
     # Close any remaining windows.
     cv2.destroyAllWindows()
