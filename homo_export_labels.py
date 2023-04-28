@@ -159,7 +159,7 @@ if __name__=='__main__':
     #         image_list.append(line.strip())
     # image_list = image_list[0:int(len(image_list)*0.5)]
 
-    device = 'cuda:1' if torch.cuda.is_available() else 'cpu'
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
     net = MagicPoint(config['model'], input_channel=1, grid_size=8,device=device)
     net.load_state_dict(torch.load(config['model']['pretrained_model']))
@@ -169,7 +169,11 @@ if __name__=='__main__':
     for idx, fpath in tqdm(enumerate(image_list)):
         root_dir, fname = os.path.split(fpath)
         ##
-        img = read_image(fpath)
+        try:
+            img = read_image(fpath)
+        except Exception as e:
+            os.remove(fpath)
+            continue
         img = ratio_preserving_resize(img, config['data']['resize'])
         t_img = to_tensor(img, device)
         ##
@@ -208,7 +212,7 @@ if __name__=='__main__':
         #         cv2.circle(debug_img, (int(pt[1]),int(pt[0])), 1, (0,255,0), thickness=-1)
         #     plt.imshow(debug_img)
         #     plt.show()
-        # if idx>=2:
+        # if idx>=10:
         #     break
         batch_fnames,batch_imgs,batch_raw_imgs = [],[],[]
     print('Done')

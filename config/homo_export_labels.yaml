@@ -1,9 +1,9 @@
 data:
     name: 'coco'
     resize: [240,320]
-    src_image_path: './data/coco/images/test2017/'
-    dst_label_path: './data/mg_coco_coco_3e-2/labels/test2017/'
-    dst_image_path: './data/mg_coco_coco_3e-2/images/test2017/'
+    src_image_path: '/media/xin/data1/data/coco/test2017' #'./data/coco/images/test2017/'
+    dst_label_path: '/media/xin/data1/train_data/superpoint2_train_data/data/datalabels/test2017/' #'./data/mg_coco_coco_3e-2/labels/test2017/'
+    dst_image_path: '/media/xin/data1/train_data/superpoint2_train_data/data/images/test2017/' #'./data/mg_coco_coco_3e-2/images/test2017/'
     homography_adaptation:
         num: 100
         aggregation: 'sum'
@@ -27,7 +27,7 @@ model:
     det_thresh: 0.015 #0.015
     nms: 4
     topk: 0
-    pretrained_model: './export/mg_syn_19.pth'
+    pretrained_model: '/media/xin/data1/train_data/superpoint2_train_data/export/mg_syn/19_0.pth'
     backbone:
         backbone_type: 'VGG'
         vgg:

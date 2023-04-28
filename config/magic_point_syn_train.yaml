@@ -3,7 +3,7 @@ data:
     primitives: 'all'
     truncate: {draw_ellipses: 0.3, draw_stripes: 0.2, gaussian_noise: 0.1}
     validation_size: 500
-    data_dir: './data/synthetic_shapes'#where to save generated data
+    data_dir: '/media/xin/data1/train_data/superpoint2_train_data/synthetic_shapes'#where to save generated data
     preprocessing:
         blur_size: 21
         resize: [120, 160]
@@ -58,5 +58,7 @@ solver:
     base_lr: 0.001
     train_batch_size: 64
     test_batch_size: 64
-    save_dir: './export'
+    save_dir: '/media/xin/data1/train_data/superpoint2_train_data/export'
     model_name: 'mg_syn'
+    log_dir: './log'
+cuda: 0

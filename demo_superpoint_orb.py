@@ -76,8 +76,6 @@ myjet = np.array([[0., 0., 0.5],
                   [0.5, 0., 0.]])
 
 DEFAULT_KEY = -1
-superPoints = {}
-
 
 def drawMatchPoints(image_name, log_file, img1, pts1, img2, pts2, desc1, desc2, cvBFSpp, win, display_scale=1,img_desc_dir=""):
     if pts1 is None or pts2 is None or desc1 is None or desc2 is None:
@@ -91,13 +89,6 @@ def drawMatchPoints(image_name, log_file, img1, pts1, img2, pts2, desc1, desc2, 
                                                                                                        desc2.T.shape,
                                                                                                        len(matches)))
     superPointsCount = {'pts1': pts1.shape[1], 'pts2': pts2.shape[1], 'match': len(matches)}
-    superPoints[f'{image_name}'] = superPointsCount
-
-    if log_file:
-        MkdirSimple(log_file)
-        with open(log_file, 'a') as f:
-            f.write(f"{image_name}:{pts1.shape[1]},{pts2.shape[1]},{len(matches)}" + "\n")
-            f.flush()
 
     out1 = (np.dstack((img1, img1, img1)) * 255.).astype('uint8')
     out2 = (np.dstack((img2, img2, img2)) * 255.).astype('uint8')
@@ -136,6 +127,13 @@ def drawMatchPoints(image_name, log_file, img1, pts1, img2, pts2, desc1, desc2, 
             save_img_name = os.path.join(save_img_desc_dir,img_name+str(count_match)+"."+img_type)
             cv2.imwrite(save_img_name,stereo_img_draw)
 
+    superPointsCount['match'] = count_match
+
+    if log_file:
+        MkdirSimple(log_file)
+        with open(log_file, 'a') as f:
+            f.write(f"{image_name}:{superPointsCount['pts1']},{superPointsCount['pts2']},{superPointsCount['match']}" + "\n")
+            f.flush()
 
 
     cv2.putText(stereo_img, str(count_match), (stereo_img.shape[1] - 150, stereo_img.shape[0] - 50), cv2.FONT_HERSHEY_COMPLEX, 2, (0, 0, 255), 2)
@@ -310,11 +308,11 @@ class SuperPointFrontend(object):
         # Remove dustbin.
         nodust = dense[:-1, :, :]
         # Reshape to get full resolution heatmap.
-        Hc = int(H / self.cell)
+        Hc = int( H / self.cell)
         Wc = int(W / self.cell)
 
         if self.reshape:
-            coarse_desc = coarse_desc.view((coarse_desc.shape[0], Hc, Wc, -1))
+            coarse_desc = coarse_desc. view((coarse_desc.shape[0], Hc, Wc, -1))
             coarse_desc = coarse_desc.permute(0, 3, 1, 2)
 
         nodust = nodust.transpose(1, 2, 0)
@@ -323,7 +321,7 @@ class SuperPointFrontend(object):
         heatmap = np.reshape(heatmap, [Hc * self.cell, Wc * self.cell])
         xs, ys = np.where(heatmap >= self.conf_thresh)  # Confidence threshold.
         if len(xs) == 0:
-            return np.zeros((3, 0)), None, None
+            return np .zeros((3, 0)), None, None
         pts = np.zeros((3, len(xs)))  # Populate point data sized 3xN.
         pts[0, :] = ys
         pts[1, :] = xs
@@ -511,8 +509,8 @@ class PointTracker(object):
         Input
           min_length - integer >= 1 with minimum track length
         Output
-          returned_tracks - M x (2+L) sized matrix storing track indices, where
-            M is the number of tracks and L is the maximum track length.
+          returne d_tracks - M x (2+L) sized matrix storing track indices, where
+            M is the number of tracks and  L is the maximum track length.
         """
         if min_length < 1:
             raise ValueError('\'min_length\' too small.')
@@ -562,7 +560,7 @@ class VideoStreamer(object):
     """ Class to help process image streams. Three types of possible inputs:"
       1.) USB Webcam.
       2.) A directory of images (files in directory matching 'img_glob').
-      3.) A video file, such as an .mp4 or .avi file.
+      3.) A video file, such  as an .mp4 or .avi file.
     """
 
     def __init__(self, basedir, camid, height, width, skip, img_glob):
@@ -574,12 +572,12 @@ class VideoStreamer(object):
         self.i = 0
         self.skip = skip
         self.maxlen = 1000000
-        # If the "basedir" string is the word camera, then use a webcam.
+        # If the "basedir" string is the wo rd camera, then use a webcam.
         if basedir == "camera/" or basedir == "camera":
-            print('==> Processing Webcam Input.')
+            print('==> Processing Webcam Input .')
             self.cap = cv2.VideoCapture(camid)
             self.listing = range(0, self.maxlen)
-            self.camera = True
+            self.camera =  True
         else:
             # Try to open as a video.
             self.cap = cv2.VideoCapture(basedir)
@@ -614,7 +612,7 @@ class VideoStreamer(object):
         """
         grayim = cv2.imread(impath, 0)
         if grayim is None:
-            raise Exception('Error reading image %s' % impath)
+            raise Exception('Error readi ng image %s' % impath)
         # Image is resized via opencv.
         interp = cv2.INTER_AREA
         grayim = cv2.resize(grayim, (img_size[1], img_size[0]), interpolation=interp)
@@ -831,7 +829,7 @@ if __name__ == '__main__':
                 print(e)
 
         # if opt.write:
-        #  out_file = os.path.join(opt.write_dir, 'frame_%05d.png' % vs.i)
+        #  out_file = os.p    ath.join(opt.write_dir, 'frame_%05d.png' % vs.i)
         #  print('Writing image to %s' % out_file)
         #  cv2.imwrite(out_file, out)
 
@@ -842,7 +840,8 @@ if __name__ == '__main__':
             print('Processed image %d (net+post_process: %.2f FPS, total: %.2f FPS).' \
                   % (vs.i, net_t, total_t))
 
-
+        if image_name == '1614044733261054_L.png':
+            break
 
     # Close any remaining windows.
     cv2.destroyAllWindows()
